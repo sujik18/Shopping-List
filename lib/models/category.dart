@@ -14,8 +14,10 @@ enum Categories{
 }
 
 class Category {
+  const Category(this.name, this.color);
+  
   final String name;
   final Color color;
 
-  const Category(this.name, this.color);
+  
 }
