@@ -1,6 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shopping_list/data/categories.dart';
 import 'package:shopping_list/models/category.dart';
+//import 'package:shopping_list/models/grocery_item.dart';
+import 'package:http/http.dart' as http;
 import 'package:shopping_list/models/grocery_item.dart';
 
 class AddItem extends StatefulWidget {
@@ -18,21 +22,57 @@ class _AddItemState extends State<AddItem> {
   var _enteredName = '';
   var _enteredQuantity = 1;
   var _selectedCategory = categories[Categories.vegetables]!;
+  var _isSending = false;
 
-  void _saveItem() {
-    if (_formKey.currentState!.validate()) {// execute each validator function in the form returns bool value
-      _formKey.currentState!.save(); // execute each onSaved function in the form
-      Navigator.of(context).pop(
+  void _saveItem() async {
+    if (_formKey.currentState!.validate()) {
+      // execute each validator function in the form returns bool value
+      _formKey.currentState!
+          .save(); // execute each onSaved function in the form
+      setState(() {
+        _isSending = true;
+      });
+
+      final url = Uri.https('flutter-prep-ceb12-default-rtdb.firebaseio.com',
+          'shopping-list.json');
+
+      /* POST request */
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode(
+          {
+            'name': _enteredName,
+            'quantity': _enteredQuantity,
+            'category': _selectedCategory.name,
+          }, // id not required as firebase creates its own id
+        ),
+      );
+      final Map<String, dynamic> resData = json.decode(response.body);
+      // print("body: ${response.body}");
+      // print(response.statusCode);
+      if (!context.mounted) {
+        return; //if the widget is not mounted (not visible on screen) return
+      }
+      Navigator.of(context).pop(GroceryItem(
+          id: resData['name'],
+          name: _enteredName,
+          quantity: _enteredQuantity,
+          category: _selectedCategory));
+
+      /*Navigator.of(context).pop(
         GroceryItem(
           id: DateTime.now().toString(),
           name: _enteredName,
           quantity: _enteredQuantity,
           category: _selectedCategory,
-          
         ),
       );
-        //print("New added item: $_enteredName");
-       //pops the current route off the navigator stack
+      */
+      //print("New added item: $_enteredName");
+      //pops the current route off the navigator stack
     }
   }
 
@@ -101,7 +141,8 @@ class _AddItemState extends State<AddItem> {
                             value: category.value,
                             child: Row(
                               children: [
-                                Container( //box with color
+                                Container(
+                                  //box with color
                                   width: 24,
                                   height: 24,
                                   color: category.value.color,
@@ -126,16 +167,24 @@ class _AddItemState extends State<AddItem> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: () {
-                      _formKey.currentState!.reset();
-                    },
+                    onPressed: _isSending
+                        ? null
+                        : () {
+                            _formKey.currentState!.reset();
+                          },
                     child: const Text("Reset"),
                   ),
                   ElevatedButton(
-                    onPressed: _saveItem,
-                    child: const Text(
-                      'Add Item',
-                    ),
+                    onPressed: _isSending ? null : _saveItem,
+                    child: _isSending
+                        ? const SizedBox(
+                            height: 16,
+                            width: 16,
+                            child: CircularProgressIndicator(),
+                          )
+                        : const Text(
+                            'Add Item',
+                          ),
                   ),
                 ],
               ),
